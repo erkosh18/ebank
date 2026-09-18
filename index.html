@@ -7,7 +7,7 @@
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#6c5ce7">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="QPay">
+<meta name="apple-mobile-web-app-title" content="E-Bank">
 <link rel="apple-touch-icon" href="./icons/icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -187,7 +187,7 @@ body.dark .chip{background:#2a1a4a}
 
 <div id="offlineBanner" class="offline-banner hidden">Вы офлайн — работают только кэшированные данные</div>
 <div id="lockScreen" class="lock-screen hidden">
-  <div style="font-size:24px;font-weight:800;margin-bottom:8px">QPay</div>
+  <div style="font-size:24px;font-weight:800;margin-bottom:8px">E-Bank</div>
   <div style="opacity:.7;margin-bottom:16px">Введите PIN-код</div>
   <div class="pin-dots" id="pinDots">
     <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
@@ -197,7 +197,7 @@ body.dark .chip{background:#2a1a4a}
 </div>
 
 <aside class="sidebar" id="sidebar">
-  <div class="logo"><i class="fas fa-bolt"></i><span>QPay</span></div>
+  <div class="logo"><i class="fas fa-bolt"></i><span>E-Bank/span></div>
   <nav id="sidebarNav"></nav>
 </aside>
 
@@ -585,8 +585,8 @@ const DEFAULT_STATE = {
   ],
   transferHistory: [],
   templates: [
-    { id: 1, name: 'Анна', phone: '+7 777 111 22 33', amount: 10000 },
-    { id: 2, name: 'Сергей', phone: '+7 777 222 33 44', amount: 5000 }
+    { id: 1, name: 'Виктория К.', phone: '+7 777 111 22 33', amount: 10000 },
+    { id: 2, name: 'Полина Ю.', phone: '+7 777 222 33 44', amount: 5000 }
   ],
   autopayments: [
     { id: 1, name: 'Аренда', amount: 80000, day: 5, recipient: 'Арендодатель' },
@@ -866,7 +866,7 @@ function transferNewForm() {
       <div class="form-group" id="transferPhoneGroup"><label>Телефон</label>
         <div class="input-icon"><i class="fas fa-phone"></i><input id="transferPhone" placeholder="+7 777 000 00 00" oninput="findUser()"></div>
         <div id="recipientInfo" class="hidden" style="margin-top:8px;padding:12px;background:var(--bg);border-radius:12px">
-          <span id="recipientName">Анна</span> · <span id="recipientPhoneMask">+7 777 *** ** 45</span>
+          <span id="recipientName">Виктория К.</span> · <span id="recipientPhoneMask">+7 777 *** ** 45</span>
         </div>
       </div>
       <div class="form-group hidden" id="transferCardGroup"><label>Карта</label>
@@ -913,7 +913,7 @@ function transferAutopay() {
 function transferSplit() {
   return `<div class="transfer-form">
     <div class="form-group"><label>Сумма счета</label><input id="splitAmount" type="number" placeholder="0"></div>
-    <div class="form-group"><label>Участники (через запятую)</label><input id="splitPeople" placeholder="Анна, Сергей, Олег"></div>
+    <div class="form-group"><label>Участники (через запятую)</label><input id="splitPeople" placeholder="Виктория К., Полина Ю., Тамерлан К."></div>
     <button class="btn-submit" onclick="doSplit()">Разделить</button>
   </div>`;
 }
@@ -961,7 +961,7 @@ function toggleTransferFields() {
 function findUser() {
   const p = document.getElementById('transferPhone').value;
   const info = document.getElementById('recipientInfo');
-  if (p.length > 8) { info.classList.remove('hidden'); document.getElementById('recipientName').textContent = 'Анна Петрова'; }
+  if (p.length > 8) { info.classList.remove('hidden'); document.getElementById('recipientName').textContent = 'Виктория Киселева'; }
   else info.classList.add('hidden');
   updateConfirm();
 }
