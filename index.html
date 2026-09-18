@@ -1,0 +1,2317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Bank - Суперприложение</title>
+
+    <meta name="theme-color" content="#6c5ce7">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="QPay">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        /* ===== RESET & BASE ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        :root {
+            --bg: #f0f2f8;
+            --card: #ffffff;
+            --text: #1a1a2e;
+            --text-muted: #7a7a9a;
+            --border: #eef2f8;
+            --primary: #6c5ce7;
+            --primary-hover: #5a4bd1;
+            --sidebar-bg: linear-gradient(180deg, #1a1a3e 0%, #2d1b69 100%);
+            --shadow: 0 4px 20px rgba(0,0,0,0.03);
+        }
+        body.dark {
+            --bg: #0f0f1a;
+            --card: #1a1a2e;
+            --text: #e8e8f0;
+            --text-muted: #8888aa;
+            --border: #2a2a3e;
+            --sidebar-bg: linear-gradient(180deg, #0a0a18 0%, #1a1030 100%);
+            --shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            min-height: 100vh;
+            transition: background 0.3s, color 0.3s;
+        }
+        a { text-decoration: none; color: inherit; }
+        button { cursor: pointer; font-family: inherit; border: none; outline: none; }
+        input, select, textarea {
+            font-family: inherit;
+            outline: none;
+            border: none;
+            background: transparent;
+            color: inherit;
+        }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 260px;
+            background: var(--sidebar-bg);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0;
+            height: 100vh;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+        .sidebar .logo {
+            font-size: 28px;
+            font-weight: 800;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            margin-bottom: 20px;
+        }
+        .sidebar .logo i { color: #a29bfe; }
+        .sidebar .logo span {
+            background: linear-gradient(135deg, #a29bfe, #fd79a8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .sidebar .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: rgba(255,255,255,0.7);
+            transition: all 0.2s ease;
+            margin-bottom: 4px;
+            font-weight: 500;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .sidebar .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .sidebar .nav-item.active { background: rgba(108, 92, 231, 0.35); color: #fff; }
+        .sidebar .nav-item i { width: 22px; font-size: 18px; }
+        .sidebar .nav-item .badge {
+            margin-left: auto;
+            background: #e74c6f;
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 20px;
+        }
+        .sidebar .bottom-links {
+            margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 16px;
+        }
+
+        /* ===== MAIN ===== */
+        .main {
+            margin-left: 260px;
+            flex: 1;
+            padding: 24px 32px 100px;
+            min-height: 100vh;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0 24px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header .greeting h2 { font-size: 22px; font-weight: 700; color: var(--text); }
+        .header .greeting p { color: var(--text-muted); font-size: 14px; }
+        .header .actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header .actions .search-box {
+            background: var(--card);
+            border-radius: 30px;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .header .actions .search-box input {
+            background: transparent;
+            padding: 4px 0;
+            font-size: 14px;
+            width: 160px;
+            color: var(--text);
+        }
+        .header .actions .search-box i { color: var(--text-muted); }
+        .header .actions .icon-btn {
+            width: 42px; height: 42px;
+            border-radius: 50%;
+            background: var(--card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: var(--text);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .header .actions .icon-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .header .actions .icon-btn .dot {
+            position: absolute; top: 6px; right: 6px;
+            width: 10px; height: 10px;
+            background: #e74c6f;
+            border-radius: 50%;
+            border: 2px solid var(--card);
+        }
+        .header .actions .avatar {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 700;
+            font-size: 18px;
+            cursor: pointer;
+            border: 2px solid var(--card);
+            box-shadow: 0 2px 12px rgba(108,92,231,0.3);
+            overflow: hidden;
+        }
+        .header .actions .avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* ===== STATS ===== */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .stat-card .label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+        .stat-card .value { font-size: 24px; font-weight: 700; color: var(--text); margin-top: 4px; }
+        .stat-card .sub { font-size: 13px; color: var(--primary); font-weight: 600; margin-top: 2px; }
+
+        /* ===== BALANCE ===== */
+        .balance-card {
+            background: var(--sidebar-bg);
+            border-radius: 24px;
+            padding: 32px 36px;
+            color: #fff;
+            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            box-shadow: 0 12px 40px rgba(26,26,62,0.25);
+        }
+        .balance-card .left .label { font-size: 14px; opacity: 0.7; font-weight: 500; }
+        .balance-card .left .amount { font-size: 38px; font-weight: 800; letter-spacing: -1px; margin: 4px 0 8px; }
+        .balance-card .left .amount span { font-size: 20px; font-weight: 500; opacity: 0.7; }
+        .balance-card .left .sub-info { display: flex; gap: 20px; font-size: 13px; opacity: 0.8; }
+        .balance-card .left .sub-info i { margin-right: 4px; }
+        .balance-card .right { display: flex; gap: 10px; flex-wrap: wrap; }
+        .balance-card .right .btn {
+            padding: 10px 22px;
+            border-radius: 40px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .balance-card .right .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+        .balance-card .right .btn-primary:hover { background: var(--primary-hover); transform: translateY(-2px); }
+        .balance-card .right .btn-outline {
+            background: transparent;
+            color: #fff;
+            border: 1.5px solid rgba(255,255,255,0.25);
+        }
+        .balance-card .right .btn-outline:hover { background: rgba(255,255,255,0.08); border-color: #fff; }
+        .balance-card .eye-btn {
+            background: transparent;
+            color: #fff;
+            font-size: 18px;
+            opacity: 0.7;
+            margin-left: 10px;
+        }
+        .balance-card .eye-btn:hover { opacity: 1; }
+
+        /* ===== SECTIONS ===== */
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 28px 0 16px;
+        }
+        .section-title h3 { font-size: 18px; font-weight: 700; color: var(--text); }
+        .section-title a { font-size: 14px; color: var(--primary); font-weight: 600; cursor: pointer; }
+
+        /* ===== QUICK ACTIONS ===== */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .quick-action {
+            background: var(--card);
+            padding: 16px 12px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            box-shadow: var(--shadow);
+            cursor: pointer;
+        }
+        .quick-action:hover { transform: translateY(-4px); border-color: var(--primary); }
+        .quick-action i { font-size: 28px; color: var(--primary); display: block; margin-bottom: 8px; }
+        .quick-action span { font-size: 12px; font-weight: 600; color: var(--text); }
+
+        /* ===== PAGE ===== */
+        .page { display: none; animation: fadeUp 0.35s ease; }
+        .page.active { display: block; }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ===== CARDS / CATEGORIES ===== */
+        .payment-categories {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .payment-cat {
+            background: var(--card);
+            padding: 16px 12px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .payment-cat:hover { border-color: var(--primary); transform: scale(1.02); }
+        .payment-cat i { font-size: 26px; color: var(--primary); margin-bottom: 6px; display: block; }
+        .payment-cat span { font-size: 12px; font-weight: 500; color: var(--text); }
+
+        /* ===== FORMS ===== */
+        .transfer-form {
+            background: var(--card);
+            padding: 28px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            max-width: 600px;
+            margin-bottom: 24px;
+        }
+        .transfer-form .form-group { margin-bottom: 18px; }
+        .transfer-form .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; }
+        .transfer-form .form-group input,
+        .transfer-form .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border);
+            font-size: 14px;
+            transition: border 0.2s;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .transfer-form .form-group input:focus,
+        .transfer-form .form-group select:focus { border-color: var(--primary); }
+        .transfer-form .form-group .input-icon { position: relative; }
+        .transfer-form .form-group .input-icon i {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+        .transfer-form .form-group .input-icon input { padding-left: 40px; }
+        .transfer-confirm {
+            background: var(--bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin: 16px 0;
+        }
+        .transfer-confirm .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+        .transfer-confirm .row .label { color: var(--text-muted); }
+        .transfer-confirm .row .value { font-weight: 600; color: var(--text); }
+        .transfer-confirm .row.total { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 8px; }
+        .transfer-confirm .row.total .value { font-size: 18px; color: var(--primary); }
+
+        .btn-submit {
+            background: var(--primary);
+            color: #fff;
+            padding: 14px 32px;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 16px;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .btn-submit:hover { background: var(--primary-hover); transform: translateY(-2px); }
+
+        /* ===== SHOP ===== */
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 18px;
+        }
+        .shop-item {
+            background: var(--card);
+            border-radius: 18px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all 0.25s;
+            box-shadow: var(--shadow);
+            position: relative;
+        }
+        .shop-item:hover { transform: translateY(-6px); }
+        .shop-item .img {
+            height: 140px;
+            background: linear-gradient(135deg, var(--bg), var(--border));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: var(--primary);
+        }
+        .shop-item .body { padding: 14px 16px 18px; }
+        .shop-item .body .name { font-weight: 600; font-size: 14px; margin-bottom: 4px; color: var(--text); }
+        .shop-item .body .price { font-weight: 700; font-size: 18px; color: var(--text); }
+        .shop-item .body .old-price { font-size: 13px; color: var(--text-muted); text-decoration: line-through; margin-left: 6px; }
+        .shop-item .body .rating { font-size: 12px; color: #f1c40f; }
+        .shop-item .body .btn-add {
+            margin-top: 10px;
+            background: var(--primary);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 13px;
+            width: 100%;
+            transition: all 0.2s;
+        }
+        .shop-item .body .btn-add:hover { background: var(--primary-hover); }
+        .shop-item .fav-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--card);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            z-index: 2;
+        }
+        .shop-item .fav-btn.active { color: #e74c6f; }
+        .shop-item .fav-btn:hover { transform: scale(1.1); }
+
+        /* ===== HISTORY ===== */
+        .history-list {
+            background: var(--card);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .history-item:last-child { border-bottom: none; }
+        .history-item .left { display: flex; align-items: center; gap: 14px; }
+        .history-item .left .icon {
+            width: 40px; height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+        .history-item .left .icon.green { background: #e8f8ed; color: #27ae60; }
+        .history-item .left .icon.red { background: #fde8e8; color: #e74c3c; }
+        .history-item .left .icon.purple { background: #ede8fd; color: var(--primary); }
+        .history-item .left .info .title { font-weight: 600; font-size: 14px; color: var(--text); }
+        .history-item .left .info .desc { font-size: 12px; color: var(--text-muted); }
+        .history-item .amount { font-weight: 700; font-size: 16px; }
+        .history-item .amount.positive { color: #27ae60; }
+        .history-item .amount.negative { color: #e74c3c; }
+
+        /* ===== PROFILE ===== */
+        .profile-card {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 32px;
+            border: 1px solid var(--border);
+            max-width: 500px;
+        }
+        .profile-card .avatar-large {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 34px;
+            color: #fff;
+            font-weight: 700;
+            margin-bottom: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+        .profile-card .avatar-large img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .profile-card .field { margin-bottom: 14px; }
+        .profile-card .field label { font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; }
+        .profile-card .field .value { font-size: 16px; font-weight: 600; color: var(--text); padding: 6px 0; }
+
+        /* ===== BOTTOM NAV ===== */
+        .bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: var(--card);
+            padding: 8px 0 12px;
+            border-top: 1px solid var(--border);
+            justify-content: space-around;
+            z-index: 999;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.04);
+        }
+        .bottom-nav .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            transition: color 0.2s;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        .bottom-nav .nav-item i { font-size: 20px; margin-bottom: 2px; }
+        .bottom-nav .nav-item.active { color: var(--primary); }
+
+        /* ===== TOAST ===== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .toast {
+            background: var(--card);
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.12);
+            border-left: 4px solid var(--primary);
+            min-width: 280px;
+            max-width: 400px;
+            animation: slideIn 0.4s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text);
+        }
+        .toast.success { border-left-color: #27ae60; }
+        .toast.error { border-left-color: #e74c3c; }
+        .toast i { font-size: 22px; }
+        .toast .msg { font-size: 14px; font-weight: 500; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(40px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* ===== AUTH ===== */
+        .auth-page {
+            display: flex;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            background: var(--sidebar-bg);
+            padding: 20px;
+        }
+        .auth-box {
+            background: var(--card);
+            padding: 40px 36px;
+            border-radius: 28px;
+            max-width: 420px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            color: var(--text);
+        }
+        .auth-box .logo { font-size: 32px; font-weight: 800; text-align: center; margin-bottom: 8px; }
+        .auth-box .logo i { color: var(--primary); }
+        .auth-box .logo span {
+            background: linear-gradient(135deg, #6c5ce7, #fd79a8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .auth-box .sub { text-align: center; color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+        .auth-box .form-group { margin-bottom: 16px; }
+        .auth-box .form-group label { font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 4px; }
+        .auth-box .form-group input {
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border);
+            font-size: 14px;
+            background: var(--bg);
+            color: var(--text);
+        }
+        .auth-box .form-group input:focus { border-color: var(--primary); }
+        .auth-box .btn-auth {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: #fff;
+            border-radius: 40px;
+            font-weight: 700;
+            font-size: 16px;
+            margin-top: 8px;
+            transition: all 0.2s;
+        }
+        .auth-box .btn-auth:hover { background: var(--primary-hover); }
+        .auth-box .switch { text-align: center; margin-top: 16px; font-size: 14px; color: var(--text-muted); }
+        .auth-box .switch a { color: var(--primary); font-weight: 600; cursor: pointer; }
+
+        /* ===== MODAL ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5000;
+            animation: fadeIn 0.25s ease;
+            padding: 20px;
+        }
+        .modal-overlay.hidden { display: none; }
+        .modal-box {
+            background: var(--card);
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: scaleIn 0.3s ease;
+            color: var(--text);
+        }
+        .modal-box .modal-title { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes scaleIn { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 992px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; padding: 16px 16px 80px; }
+            .bottom-nav { display: flex; }
+            .header .actions .search-box input { width: 100px; }
+            .balance-card .left .amount { font-size: 28px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 600px) {
+            .stats-grid { grid-template-columns: 1fr 1fr; }
+            .balance-card { padding: 20px; flex-direction: column; text-align: center; }
+            .balance-card .right { justify-content: center; }
+            .quick-actions { grid-template-columns: repeat(4, 1fr); }
+            .payment-categories { grid-template-columns: repeat(3, 1fr); }
+            .shop-grid { grid-template-columns: 1fr 1fr; }
+            .auth-box { padding: 28px 20px; }
+            .transfer-form { padding: 20px; }
+            .profile-card { padding: 20px; }
+        }
+
+        .hamburger {
+            display: none;
+            font-size: 24px;
+            background: none;
+            color: var(--text);
+            padding: 8px;
+        }
+        @media (max-width: 992px) {
+            .hamburger { display: block; }
+        }
+
+        .hidden { display: none !important; }
+        .flex { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .text-center { text-align: center; }
+        .text-muted { color: var(--text-muted); font-size: 13px; }
+        .chip {
+            background: #ede8fd;
+            color: var(--primary);
+            padding: 4px 14px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        body.dark .chip { background: #2a1a4a; }
+        .notif-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-item.unread .notif-title { font-weight: 700; }
+        .notif-item .notif-title { font-size: 14px; font-weight: 500; }
+        .notif-item .notif-msg { font-size: 13px; color: var(--text-muted); }
+        .notif-item .notif-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+        .leaflet-container { border-radius: 16px; }
+        #map { height: 300px; border-radius: 16px; margin-top: 16px; }
+        .seat-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 6px;
+            max-width: 300px;
+            margin: 12px auto;
+        }
+        .seat {
+            width: 100%;
+            aspect-ratio: 1;
+            border-radius: 6px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-muted);
+        }
+        .seat.selected { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .seat.occupied { background: #e74c3c; color: #fff; border-color: #e74c3c; cursor: not-allowed; }
+        .seat.aisle { background: transparent; border: none; cursor: default; }
+
+        /* ===== PWA ===== */
+        #pwaOfflineIndicator, #pwaUpdateBanner, #pwaInstallBanner, #pwaIosBanner {
+            position: fixed; left: 16px; right: 16px; z-index: 12000;
+            border-radius: 16px; padding: 12px 16px; box-shadow: 0 10px 30px rgba(0,0,0,.15);
+            font-size: 13px; font-weight: 600; display: none; align-items: center; gap: 12px;
+        }
+        #pwaOfflineIndicator { bottom: 16px; background: #2d1b69; color: #fff; }
+        #pwaUpdateBanner, #pwaInstallBanner, #pwaIosBanner { bottom: 76px; background: var(--card); color: var(--text); border: 1px solid var(--border); }
+        #pwaUpdateBanner button, #pwaInstallBanner button, #pwaIosBanner button {
+            margin-left: auto; padding: 8px 14px; border-radius: 22px; background: var(--primary); color: #fff; font-weight: 700;
+        }
+        #pwaOfflineIndicator.visible, #pwaUpdateBanner.visible, #pwaInstallBanner.visible, #pwaIosBanner.visible { display: flex; }
+        #pwaInstallBanner .pwa-dismiss, #pwaIosBanner .pwa-dismiss { background: transparent; color: var(--text-muted); margin-left: 0; }
+    </style>
+</head>
+<body>
+
+
+<!-- ===== PWA UI ===== -->
+<div id="pwaOfflineIndicator" role="status" aria-live="polite">
+    <span>Офлайн-режим: изменения сохраняются на устройстве</span>
+</div>
+<div id="pwaUpdateBanner" role="status" aria-live="polite">
+    <span>Доступна новая версия приложения</span>
+    <button id="pwaUpdateButton" type="button">Обновить</button>
+</div>
+<div id="pwaInstallBanner" role="dialog" aria-label="Установка приложения">
+    <span>Установите QPay как приложение для быстрого доступа</span>
+    <button id="pwaInstallButton" type="button">Установить</button>
+    <button class="pwa-dismiss" id="pwaInstallDismiss" type="button">Позже</button>
+</div>
+<div id="pwaIosBanner" role="dialog" aria-label="Установка на iPhone">
+    <span>На iPhone откройте меню «Поделиться», выберите «На экран Домой», затем подтвердите установку.</span>
+    <button class="pwa-dismiss" id="pwaIosDismiss" type="button">Закрыть</button>
+</div>
+
+<!-- ===== SIDEBAR ===== -->
+<aside class="sidebar" id="sidebar">
+    <div class="logo"><i class="fas fa-bolt"></i><span>E-Bank</span></div>
+    <nav>
+        <a class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')"><i class="fas fa-home"></i> Главная</a>
+        <a class="nav-item" data-page="payments" onclick="navigate('payments')"><i class="fas fa-credit-card"></i> Платежи</a>
+        <a class="nav-item" data-page="transfers" onclick="navigate('transfers')"><i class="fas fa-exchange-alt"></i> Переводы</a>
+        <a class="nav-item" data-page="shop" onclick="navigate('shop')"><i class="fas fa-store"></i> Магазин</a>
+        <a class="nav-item" data-page="cart" onclick="navigate('cart')"><i class="fas fa-shopping-cart"></i> Корзина <span class="badge" id="cartBadge">0</span></a>
+        <a class="nav-item" data-page="orders" onclick="navigate('orders')"><i class="fas fa-box"></i> Заказы</a>
+        <a class="nav-item" data-page="tickets" onclick="navigate('tickets')"><i class="fas fa-ticket-alt"></i> Билеты</a>
+        <a class="nav-item" data-page="government" onclick="navigate('government')"><i class="fas fa-landmark"></i> Госуслуги</a>
+        <a class="nav-item" data-page="guide" onclick="navigate('guide')"><i class="fas fa-compass"></i> Гид</a>
+        <a class="nav-item" data-page="bank" onclick="navigate('bank')"><i class="fas fa-university"></i> E-Bank</a>
+        <a class="nav-item" data-page="cards" onclick="navigate('cards')"><i class="fas fa-id-card"></i> Карты</a>
+        <a class="nav-item" data-page="history" onclick="navigate('history')"><i class="fas fa-clock"></i> История</a>
+        <a class="nav-item" data-page="profile" onclick="navigate('profile')"><i class="fas fa-user"></i> Профиль</a>
+        <a class="nav-item" data-page="settings" onclick="navigate('settings')"><i class="fas fa-cog"></i> Настройки</a>
+        <a class="nav-item" data-page="help" onclick="navigate('help')"><i class="fas fa-question-circle"></i> Помощь</a>
+        <a class="nav-item" onclick="logout()" style="color:#e74c6f;"><i class="fas fa-sign-out-alt"></i> Выйти</a>
+    </nav>
+</aside>
+
+<!-- ===== MAIN ===== -->
+<div class="main" id="mainContent">
+    <header class="header">
+        <div class="greeting">
+            <button class="hamburger" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+            <h2 id="greetingText">Добро пожаловать, <span id="userNameDisplay">Гость</span></h2>
+            <p id="dateDisplay"></p>
+        </div>
+        <div class="actions">
+            <div class="search-box"><i class="fas fa-search"></i><input placeholder="Поиск..."></div>
+            <button class="icon-btn" onclick="showNotifications()"><i class="fas fa-bell"></i><span class="dot" id="notifDot"></span></button>
+            <button class="icon-btn" onclick="toggleTheme()"><i class="fas fa-moon" id="themeIcon"></i></button>
+            <div class="avatar" id="avatarLetter" onclick="navigate('profile')">G</div>
+        </div>
+    </header>
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="page active" id="page-dashboard">
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card"><div class="label">Общий баланс</div><div class="value" id="totalBalance">0 ₸</div></div>
+            <div class="stat-card"><div class="label">Доступно</div><div class="value" id="availableBalance">0 ₸</div></div>
+            <div class="stat-card"><div class="label">Бонусы</div><div class="value" id="bonusBalance">0 ₸</div></div>
+            <div class="stat-card"><div class="label">Карты</div><div class="value" id="cardCount">0</div></div>
+        </div>
+
+        <div class="balance-card">
+            <div class="left">
+                <div class="label">Баланс</div>
+                <div class="amount" id="balanceAmount">0 <span>₸</span></div>
+                <div class="sub-info"><span><i class="fas fa-arrow-up"></i> Доход: 12 400 ₸</span><span><i class="fas fa-arrow-down"></i> Расход: 8 200 ₸</span></div>
+            </div>
+            <div class="right">
+                <button class="btn btn-primary" onclick="showModal('Пополнение', 'Пополнить баланс')"><i class="fas fa-plus"></i> Пополнить</button>
+                <button class="btn btn-primary" onclick="navigate('transfers')"><i class="fas fa-paper-plane"></i> Перевести</button>
+                <button class="btn btn-outline" onclick="navigate('payments')"><i class="fas fa-receipt"></i> Оплатить</button>
+                <button class="btn btn-outline" onclick="navigate('history')"><i class="fas fa-list"></i> История</button>
+            </div>
+            <button class="eye-btn" onclick="toggleBalanceVisibility()"><i class="fas fa-eye" id="eyeIcon"></i></button>
+        </div>
+
+        <div class="section-title"><h3>Быстрые действия</h3></div>
+        <div class="quick-actions">
+            <div class="quick-action" onclick="navigate('transfers')"><i class="fas fa-phone-alt"></i><span>По номеру</span></div>
+            <div class="quick-action" onclick="navigate('payments')"><i class="fas fa-lightbulb"></i><span>Оплатить</span></div>
+            <div class="quick-action" onclick="navigate('shop')"><i class="fas fa-shopping-bag"></i><span>Покупки</span></div>
+            <div class="quick-action" onclick="navigate('tickets')"><i class="fas fa-plane"></i><span>Билеты</span></div>
+            <div class="quick-action" onclick="navigate('government')"><i class="fas fa-gavel"></i><span>Госуслуги</span></div>
+            <div class="quick-action" onclick="showQR()"><i class="fas fa-qrcode"></i><span>QR-платеж</span></div>
+        </div>
+
+        <div class="section-title"><h3>Расходы за неделю</h3></div>
+        <div style="background:var(--card);border-radius:20px;padding:20px;border:1px solid var(--border);">
+            <canvas id="expenseChart" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- ===== PAYMENTS ===== -->
+    <div class="page" id="page-payments">
+        <h3 style="margin-bottom:16px;">Платежи</h3>
+        <div class="payment-categories" id="paymentCategories"></div>
+        <div class="section-title"><h3>Популярные услуги</h3></div>
+        <div id="paymentServices" class="shop-grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));"></div>
+    </div>
+
+    <!-- ===== TRANSFERS ===== -->
+    <div class="page" id="page-transfers">
+        <h3 style="margin-bottom:16px;">Переводы</h3>
+        <div class="transfer-form">
+            <div class="form-group">
+                <label>Способ перевода</label>
+                <select id="transferType" onchange="toggleTransferFields()">
+                    <option value="phone">По номеру телефона</option>
+                    <option value="card">На банковскую карту</option>
+                    <option value="internal">Между своими счетами</option>
+                </select>
+            </div>
+            <div class="form-group" id="transferPhoneGroup">
+                <label>Номер телефона получателя</label>
+                <div class="input-icon"><i class="fas fa-phone"></i><input id="transferPhone" placeholder="+7 777 000 00 00" oninput="findUser()"></div>
+                <div id="recipientInfo" class="hidden" style="margin-top:8px;padding:12px;background:var(--bg);border-radius:12px;">
+                    <span id="recipientName">Иван Иванов</span> · <span id="recipientPhoneMask">+7 777 *** ** 45</span>
+                </div>
+            </div>
+            <div class="form-group hidden" id="transferCardGroup">
+                <label>Номер карты получателя</label>
+                <div class="input-icon"><i class="fas fa-credit-card"></i><input id="transferCard" placeholder="0000 0000 0000 0000"></div>
+            </div>
+            <div class="form-group hidden" id="transferInternalGroup">
+                <label>Куда перевести</label>
+                <select id="transferInternalAccount">
+                    <option value="main">Основной счет</option>
+                    <option value="savings">Накопительный счет</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Сумма (₸)</label>
+                <div class="input-icon"><i class="fas fa-tenge"></i><input id="transferAmount" type="number" placeholder="0" min="1" oninput="updateConfirm()"></div>
+            </div>
+            <div class="form-group">
+                <label>Комментарий</label>
+                <input id="transferComment" placeholder="Для чего перевод...">
+            </div>
+
+            <div class="transfer-confirm" id="transferConfirm">
+                <div class="row"><span class="label">Получатель</span><span class="value" id="confirmRecipient">—</span></div>
+                <div class="row"><span class="label">Номер</span><span class="value" id="confirmPhone">—</span></div>
+                <div class="row"><span class="label">Сумма</span><span class="value" id="confirmAmount">0 ₸</span></div>
+                <div class="row"><span class="label">Комиссия</span><span class="value">0 ₸</span></div>
+                <div class="row total"><span class="label">Итого</span><span class="value" id="confirmTotal">0 ₸</span></div>
+            </div>
+            <button class="btn-submit" onclick="processTransfer()"><i class="fas fa-paper-plane"></i> Перевести</button>
+        </div>
+        <div class="section-title"><h3>Последние переводы</h3></div>
+        <div id="transferHistory" class="history-list"></div>
+    </div>
+
+    <!-- ===== SHOP ===== -->
+    <div class="page" id="page-shop">
+        <h3 style="margin-bottom:16px;">QPay Market</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+            <select id="shopCategory" onchange="renderShop()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);background:var(--card);color:var(--text);">
+                <option value="all">Все категории</option>
+                <option value="electronics">Электроника</option>
+                <option value="phones">Телефоны</option>
+                <option value="clothing">Одежда</option>
+                <option value="home">Дом</option>
+                <option value="sport">Спорт</option>
+            </select>
+            <input id="shopSearch" placeholder="Поиск товаров..." oninput="renderShop()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);flex:1;min-width:150px;background:var(--card);color:var(--text);">
+            <select id="shopSort" onchange="renderShop()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);background:var(--card);color:var(--text);">
+                <option value="default">Сортировка</option>
+                <option value="price_asc">Цена: по возрастанию</option>
+                <option value="price_desc">Цена: по убыванию</option>
+                <option value="rating">По рейтингу</option>
+            </select>
+            <button class="chip" onclick="toggleFavFilter()" id="favFilterBtn" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:10px 16px;"><i class="fas fa-heart"></i> Избранное</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;">
+            <input id="promoCode" placeholder="Промокод" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);flex:1;background:var(--card);color:var(--text);">
+            <button class="btn-submit" style="width:auto;padding:10px 24px;" onclick="applyPromo()">Применить</button>
+        </div>
+        <div class="shop-grid" id="shopGrid"></div>
+    </div>
+
+    <!-- ===== CART ===== -->
+    <div class="page" id="page-cart">
+        <h3 style="margin-bottom:16px;">Корзина</h3>
+        <div id="cartList" class="history-list"></div>
+        <div id="cartTotal" style="margin-top:16px;text-align:right;font-size:20px;font-weight:700;"></div>
+        <button class="btn-submit" style="max-width:300px;margin-top:16px;" onclick="checkout()">Оформить заказ</button>
+    </div>
+
+    <!-- ===== ORDERS ===== -->
+    <div class="page" id="page-orders">
+        <h3 style="margin-bottom:16px;">Мои заказы</h3>
+        <div id="ordersList" class="history-list"></div>
+    </div>
+
+    <!-- ===== TICKETS ===== -->
+    <div class="page" id="page-tickets">
+        <h3 style="margin-bottom:16px;">Билеты</h3>
+        <div class="transfer-form" style="max-width:100%;">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;flex-wrap:wrap;">
+                <div class="form-group"><label>Откуда</label><input id="ticketFrom" placeholder="Город" value="Алматы"></div>
+                <div class="form-group"><label>Куда</label><input id="ticketTo" placeholder="Город" value="Астана"></div>
+                <div class="form-group"><label>Дата</label><input id="ticketDate" type="date" value="2025-06-15"></div>
+                <div class="form-group"><label>Пассажиры</label><input id="ticketPassengers" type="number" value="1" min="1"></div>
+            </div>
+            <button class="btn-submit" onclick="searchTickets()" style="margin-top:8px;"><i class="fas fa-search"></i> Найти билеты</button>
+        </div>
+        <div id="ticketResults" class="shop-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));"></div>
+    </div>
+
+    <!-- ===== GOVERNMENT ===== -->
+    <div class="page" id="page-government">
+        <h3 style="margin-bottom:16px;">Госуслуги</h3>
+        <div class="payment-categories" id="govServices"></div>
+        <div id="govRequests" style="margin-top:20px;"></div>
+    </div>
+
+    <!-- ===== GUIDE ===== -->
+    <div class="page" id="page-guide">
+        <h3 style="margin-bottom:16px;">QPay Гид</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
+            <input id="guideSearch" placeholder="Поиск мест..." oninput="renderGuide()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);flex:1;min-width:150px;background:var(--card);color:var(--text);">
+        </div>
+        <div id="map"></div>
+        <div class="shop-grid" id="guideGrid" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- ===== BANK ===== -->
+    <div class="page" id="page-bank">
+        <h3 style="margin-bottom:16px;">E-Bank</h3>
+        <div class="stats-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="stat-card"><div class="label">Основной счет</div><div class="value" id="mainAccount">0 ₸</div></div>
+            <div class="stat-card"><div class="label">Накопительный</div><div class="value" id="savingsAccount">0 ₸</div></div>
+        </div>
+        <div class="section-title"><h3>Банковские продукты</h3></div>
+        <div class="shop-grid" id="bankProducts" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));"></div>
+    </div>
+
+    <!-- ===== CARDS ===== -->
+    <div class="page" id="page-cards">
+        <h3 style="margin-bottom:16px;">Мои карты</h3>
+        <div id="cardsList" class="shop-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));"></div>
+        <button class="btn-submit" style="max-width:300px;margin-top:16px;" onclick="showModal('Новая карта','Выпустить виртуальную карту')"><i class="fas fa-plus"></i> Выпустить карту</button>
+    </div>
+
+    <!-- ===== HISTORY ===== -->
+    <div class="page" id="page-history">
+        <h3 style="margin-bottom:16px;">История операций</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;">
+            <select id="historyFilter" onchange="renderHistory()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);background:var(--card);color:var(--text);">
+                <option value="all">Все</option>
+                <option value="transfer">Переводы</option>
+                <option value="payment">Платежи</option>
+                <option value="purchase">Покупки</option>
+                <option value="income">Пополнения</option>
+            </select>
+            <input id="historyDateFrom" type="date" onchange="renderHistory()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);background:var(--card);color:var(--text);">
+            <input id="historyDateTo" type="date" onchange="renderHistory()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);background:var(--card);color:var(--text);">
+            <input id="historyMinAmount" type="number" placeholder="Мин сумма" oninput="renderHistory()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);width:120px;background:var(--card);color:var(--text);">
+            <input id="historyMaxAmount" type="number" placeholder="Макс сумма" oninput="renderHistory()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);width:120px;background:var(--card);color:var(--text);">
+            <button class="chip" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:10px 16px;" onclick="exportCSV()"><i class="fas fa-download"></i> CSV</button>
+        </div>
+        <div class="history-list" id="historyList"></div>
+    </div>
+
+    <!-- ===== PROFILE ===== -->
+    <div class="page" id="page-profile">
+        <h3 style="margin-bottom:16px;">Мой профиль</h3>
+        <div class="profile-card">
+            <div class="avatar-large" id="profileAvatar">G</div>
+            <div style="margin-bottom:16px;">
+                <input type="file" id="avatarUpload" accept="image/*" style="display:none;" onchange="uploadAvatar(event)">
+                <button class="chip" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 16px;" onclick="document.getElementById('avatarUpload').click()"><i class="fas fa-camera"></i> Сменить аватар</button>
+            </div>
+            <div class="field"><label>Имя</label><div class="value" id="profileName">Гость</div></div>
+            <div class="field"><label>Телефон</label><div class="value" id="profilePhone">+7 777 000 00 00</div></div>
+            <div class="field"><label>Email</label><div class="value" id="profileEmail">guest@qpay.kz</div></div>
+            <div class="field"><label>Дата регистрации</label><div class="value" id="profileDate">01.01.2025</div></div>
+            <button class="btn-submit" onclick="showModal('Редактировать','Изменить профиль')" style="max-width:200px;"><i class="fas fa-edit"></i> Редактировать</button>
+        </div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div class="page" id="page-settings">
+        <h3 style="margin-bottom:16px;">Настройки</h3>
+        <div class="profile-card" style="max-width:600px;">
+            <div class="field"><label>Тёмная тема</label>
+                <button class="chip" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 16px;" onclick="toggleTheme()"><i class="fas fa-moon"></i> Переключить</button>
+            </div>
+            <div class="field"><label>Язык</label>
+                <select id="langSelect" onchange="changeLang()" style="padding:10px 16px;border-radius:30px;border:1px solid var(--border);background:var(--card);color:var(--text);width:100%;">
+                    <option value="ru">Русский</option>
+                    <option value="kz">Қазақша</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <div class="field"><label>PIN-код для входа и переводов</label>
+                <button class="chip" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 16px;" onclick="setPin()"><i class="fas fa-lock"></i> Установить PIN</button>
+            </div>
+            <div class="field"><label>Биометрия</label>
+                <button class="chip" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 16px;" onclick="toast('Биометрия включена (демо)')"><i class="fas fa-fingerprint"></i> Включить</button>
+            </div>
+            <div class="field"><label>Журнал входов</label>
+                <button class="chip" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 16px;" onclick="showLoginLog()"><i class="fas fa-history"></i> Показать</button>
+            </div>
+            <div class="field"><label>Активные устройства</label>
+                <button class="chip" style="cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text);padding:8px 16px;" onclick="showDevices()"><i class="fas fa-mobile-alt"></i> Показать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== HELP ===== -->
+    <div class="page" id="page-help">
+        <h3 style="margin-bottom:16px;">Помощь</h3>
+        <div class="profile-card" style="max-width:600px;">
+            <div class="field"><label>Часто задаваемые вопросы</label>
+                <div class="text-muted" style="padding:8px 0;">Как перевести деньги?<br>Как оплатить услугу?<br>Как выпустить карту?</div>
+            </div>
+            <div class="field"><label>Служба поддержки</label>
+                <div class="value">+7 777 000 00 00</div>
+                <div class="value">support@qpay.kz</div>
+            </div>
+            <button class="btn-submit" onclick="toast('Заявка в поддержку отправлена (демо)')">Написать в поддержку</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<nav class="bottom-nav" id="bottomNav">
+    <a class="nav-item active" onclick="navigate('dashboard')"><i class="fas fa-home"></i>Главная</a>
+    <a class="nav-item" onclick="navigate('payments')"><i class="fas fa-credit-card"></i>Платежи</a>
+    <a class="nav-item" onclick="navigate('shop')"><i class="fas fa-store"></i>Магазин</a>
+    <a class="nav-item" onclick="navigate('transfers')"><i class="fas fa-exchange-alt"></i>Переводы</a>
+    <a class="nav-item" onclick="navigate('profile')"><i class="fas fa-user"></i>Профиль</a>
+</nav>
+
+<!-- ===== MODAL ===== -->
+<div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal-box">
+        <h3 class="modal-title" id="modalTitle">Заголовок</h3>
+        <div id="modalBody"><p>Содержимое модального окна</p></div>
+        <button onclick="closeModal()" style="margin-top:16px;padding:10px 24px;background:var(--primary);color:#fff;border-radius:40px;font-weight:600;">Закрыть</button>
+    </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+let QPay = {
+    user: null,
+    balance: 125450,
+    bonus: 2450,
+    cards: [
+        { id: 1, name: 'Visa Virtual', number: '**** **** **** 1234', expiry: '12/27', balance: 85450, status: 'active' },
+        { id: 2, name: 'Mastercard Debit', number: '**** **** **** 5678', expiry: '08/26', balance: 40000, status: 'active' }
+    ],
+    transactions: [
+        { id: 1, type: 'income', title: 'Перевод от Анны', amount: 50000, date: 'Сегодня', icon: 'green', rawDate: new Date().toISOString() },
+        { id: 2, type: 'expense', title: 'Супермаркет', amount: 4500, date: 'Сегодня', icon: 'red', rawDate: new Date().toISOString() },
+        { id: 3, type: 'expense', title: 'Мобильная связь', amount: 1200, date: 'Сегодня', icon: 'purple', rawDate: new Date().toISOString() },
+        { id: 4, type: 'expense', title: 'Интернет', amount: 8900, date: 'Сегодня', icon: 'purple', rawDate: new Date().toISOString() },
+        { id: 5, type: 'income', title: 'Зарплата', amount: 120000, date: 'Вчера', icon: 'green', rawDate: new Date(Date.now() - 86400000).toISOString() }
+    ],
+    payments: [
+        { id: 1, name: 'Beeline', category: 'Мобильная связь', icon: 'fa-phone', amount: 1200 },
+        { id: 2, name: 'Kcell', category: 'Мобильная связь', icon: 'fa-phone', amount: 1500 },
+        { id: 3, name: 'Megaline', category: 'Интернет', icon: 'fa-wifi', amount: 8900 },
+        { id: 4, name: 'ID-TV', category: 'Телевидение', icon: 'fa-tv', amount: 4500 },
+        { id: 5, name: 'Алматы Энерго', category: 'Электроэнергия', icon: 'fa-bolt', amount: 3200 },
+        { id: 6, name: 'Водоканал', category: 'Вода', icon: 'fa-tint', amount: 1800 },
+    ],
+    products: [
+        { id: 1, name: 'iPhone 15 Pro', category: 'phones', price: 499990, oldPrice: 549990, rating: 4.8, icon: 'fa-mobile-alt' },
+        { id: 2, name: 'Samsung Galaxy S24', category: 'phones', price: 459990, oldPrice: 499990, rating: 4.7, icon: 'fa-mobile-alt' },
+        { id: 3, name: 'MacBook Air M3', category: 'electronics', price: 749990, oldPrice: 799990, rating: 4.9, icon: 'fa-laptop' },
+        { id: 4, name: 'Кроссовки Nike', category: 'clothing', price: 45900, oldPrice: 59900, rating: 4.5, icon: 'fa-shoe-prints' },
+        { id: 5, name: 'Наушники Sony WH-1000XM5', category: 'electronics', price: 149900, oldPrice: 179900, rating: 4.8, icon: 'fa-headphones' },
+        { id: 6, name: 'Смарт-часы Apple Watch', category: 'electronics', price: 219900, oldPrice: 249900, rating: 4.6, icon: 'fa-clock' },
+        { id: 7, name: 'Диван угловой', category: 'home', price: 189900, oldPrice: 219900, rating: 4.3, icon: 'fa-couch' },
+        { id: 8, name: 'Велосипед Merida', category: 'sport', price: 349900, oldPrice: 399900, rating: 4.7, icon: 'fa-bicycle' },
+    ],
+    tickets: [
+        { id: 1, from: 'Алматы', to: 'Астана', date: '15.06.2025', price: 25000, company: 'Air Astana', type: 'Авиа' },
+        { id: 2, from: 'Алматы', to: 'Астана', date: '15.06.2025', price: 18000, company: 'Tulpar', type: 'Поезд' },
+        { id: 3, from: 'Алматы', to: 'Астана', date: '15.06.2025', price: 12000, company: 'Сапаржай', type: 'Автобус' },
+    ],
+    guide: [
+        { id: 1, name: 'Ресторан "Алатау"', category: 'Рестораны', rating: 4.8, address: 'ул. Абая 45', phone: '+7 777 111 22 33', lat: 43.238, lng: 76.945 },
+        { id: 2, name: 'Кофейня "Coffee House"', category: 'Кафе', rating: 4.6, address: 'пр. Достык 12', phone: '+7 777 222 33 44', lat: 43.242, lng: 76.955 },
+        { id: 3, name: 'ТЦ "Mega Center"', category: 'Магазины', rating: 4.5, address: 'ул. Сатпаева 34', phone: '+7 777 333 44 55', lat: 43.230, lng: 76.940 },
+        { id: 4, name: 'Кинотеатр "Cinema Plus"', category: 'Кинотеатры', rating: 4.7, address: 'ул. Гагарина 78', phone: '+7 777 444 55 66', lat: 43.235, lng: 76.950 },
+        { id: 5, name: 'Отель "Rixos"', category: 'Отели', rating: 4.9, address: 'пр. Сейфуллина 99', phone: '+7 777 555 66 77', lat: 43.245, lng: 76.960 },
+    ],
+    govServices: [
+        { id: 1, name: 'Налоги', icon: 'fa-file-invoice-dollar' },
+        { id: 2, name: 'Штрафы', icon: 'fa-gavel' },
+        { id: 3, name: 'Проверка задолженности', icon: 'fa-search-dollar' },
+        { id: 4, name: 'Документы', icon: 'fa-id-card' },
+        { id: 5, name: 'Справки', icon: 'fa-file-alt' },
+        { id: 6, name: 'Образование', icon: 'fa-graduation-cap' },
+        { id: 7, name: 'Транспорт', icon: 'fa-car' },
+        { id: 8, name: 'Социальные услуги', icon: 'fa-hand-holding-heart' },
+    ],
+    bankProducts: [
+        { id: 1, name: 'Debit Card', desc: 'Бесплатное обслуживание', icon: 'fa-credit-card', benefits: 'Кэшбэк до 5%' },
+        { id: 2, name: 'Credit Card', desc: 'Льготный период 50 дней', icon: 'fa-credit-card', benefits: 'Кредитный лимит до 1M' },
+        { id: 3, name: 'Savings Account', desc: 'Ставка 14% годовых', icon: 'fa-piggy-bank', benefits: 'Капитализация процентов' },
+        { id: 4, name: 'Deposit', desc: 'Срок до 24 месяцев', icon: 'fa-coins', benefits: 'Гарантия государства' },
+        { id: 5, name: 'Installment', desc: 'Рассрочка на товары', icon: 'fa-shopping-cart', benefits: 'Без переплаты' },
+        { id: 6, name: 'Virtual Card', desc: 'Мгновенный выпуск', icon: 'fa-mobile-alt', benefits: 'Безопасные онлайн-платежи' },
+    ],
+    notifications: [
+        { id: 1, title: 'Перевод выполнен', msg: 'Вы отправили 10 000 ₸ Анне', read: false, time: 'Только что' },
+        { id: 2, title: 'Оплата выполнена', msg: 'Интернет — 5 000 ₸', read: false, time: '5 мин назад' },
+        { id: 3, title: 'Новый заказ', msg: 'Заказ №10245 принят', read: true, time: '1 ч назад' },
+        { id: 4, title: 'Акция', msg: 'Скидка 15% на электронику', read: true, time: '2 ч назад' },
+    ],
+    transferHistory: [
+        { id: 1, to: 'Анна', amount: 10000, date: 'Сегодня', status: 'completed' },
+        { id: 2, to: 'Сергей', amount: 5000, date: 'Вчера', status: 'completed' },
+    ],
+    cart: [],
+    orders: [],
+    favorites: [],
+    promo: null,
+    pin: null,
+    loginLog: [
+        { id: 1, date: '01.01.2025 10:30', device: 'iPhone 15', ip: '192.168.1.1' }
+    ],
+    devices: [
+        { id: 1, name: 'iPhone 15', lastActive: 'Сейчас' },
+        { id: 2, name: 'MacBook Pro', lastActive: '2 часа назад' }
+    ]
+};
+
+// ============================================================
+// UTILS
+// ============================================================
+function formatNumber(n) { return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸'; }
+
+function toast(msg, type = 'success') {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = `toast ${type}`;
+    t.innerHTML = `<i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i><span class="msg">${msg}</span>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(40px)'; setTimeout(() => t.remove(), 400); }, 3000);
+}
+
+function showModal(title, body) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').innerHTML = body;
+    document.getElementById('modalOverlay').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.add('hidden'); }
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+function navigate(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    document.querySelectorAll('.sidebar .nav-item').forEach(n => n.classList.remove('active'));
+    document.querySelector(`.sidebar .nav-item[data-page="${page}"]`)?.classList.add('active');
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.remove('active'));
+    if (window.innerWidth <= 992) document.getElementById('sidebar').classList.remove('open');
+    renderPage(page);
+}
+
+function renderPage(page) {
+    switch(page) {
+        case 'dashboard': renderDashboard(); break;
+        case 'payments': renderPayments(); break;
+        case 'transfers': renderTransfers(); break;
+        case 'shop': renderShop(); break;
+        case 'cart': renderCart(); break;
+        case 'orders': renderOrders(); break;
+        case 'tickets': break;
+        case 'government': renderGovernment(); break;
+        case 'guide': renderGuide(); break;
+        case 'bank': renderBank(); break;
+        case 'cards': renderCards(); break;
+        case 'history': renderHistory(); break;
+        case 'profile': renderProfile(); break;
+    }
+}
+
+// ============================================================
+// THEME & LANG
+// ============================================================
+function toggleTheme() {
+    document.body.classList.toggle('dark');
+    const isDark = document.body.classList.contains('dark');
+    document.getElementById('themeIcon').className = isDark ? 'fas fa-sun' : 'fas fa-moon';
+    localStorage.setItem('qpay_theme', isDark ? 'dark' : 'light');
+}
+
+function changeLang() {
+    const lang = document.getElementById('langSelect').value;
+    localStorage.setItem('qpay_lang', lang);
+    toast('Язык изменён (демо)', 'info');
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+function loginUser(phone, pass) {
+    if (phone === '+7 777 000 00 00' && pass === 'Demo12345') {
+        QPay.user = { name: 'Азамат', phone: '+7 777 000 00 00', email: 'azamat@qpay.kz', registered: '01.01.2025' };
+        localStorage.setItem('qpay_user', JSON.stringify(QPay.user));
+        toast('Добро пожаловать, ' + QPay.user.name + '!');
+        document.getElementById('authPage')?.remove();
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('sidebar').style.display = 'flex';
+        document.getElementById('bottomNav').style.display = 'flex';
+        renderDashboard();
+        return true;
+    }
+    toast('Неверный телефон или пароль', 'error');
+    return false;
+}
+
+function logout() {
+    QPay.user = null;
+    localStorage.removeItem('qpay_user');
+    location.reload();
+}
+
+function checkAuth() {
+    const saved = localStorage.getItem('qpay_user');
+    if (saved) {
+        QPay.user = JSON.parse(saved);
+        document.getElementById('authPage')?.remove();
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('sidebar').style.display = 'flex';
+        document.getElementById('bottomNav').style.display = 'flex';
+        renderDashboard();
+        return true;
+    }
+    return false;
+}
+
+// ============================================================
+// AVATAR
+// ============================================================
+function uploadAvatar(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        localStorage.setItem('qpay_avatar', dataUrl);
+        document.getElementById('avatarLetter').innerHTML = `<img src="${dataUrl}" alt="avatar">`;
+        document.getElementById('profileAvatar').innerHTML = `<img src="${dataUrl}" alt="avatar">`;
+        toast('Аватар обновлён');
+    };
+    reader.readAsDataURL(file);
+}
+
+function loadAvatar() {
+    const saved = localStorage.getItem('qpay_avatar');
+    if (saved) {
+        document.getElementById('avatarLetter').innerHTML = `<img src="${saved}" alt="avatar">`;
+        document.getElementById('profileAvatar').innerHTML = `<img src="${saved}" alt="avatar">`;
+    } else {
+        const name = QPay.user ? QPay.user.name : 'G';
+        document.getElementById('avatarLetter').textContent = name.charAt(0).toUpperCase();
+        document.getElementById('profileAvatar').textContent = name.charAt(0).toUpperCase();
+    }
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+    const name = QPay.user ? QPay.user.name : 'Гость';
+    document.getElementById('userNameDisplay').textContent = name;
+    document.getElementById('greetingText').innerHTML = `Добро пожаловать, <span id="userNameDisplay">${name}</span>`;
+    document.getElementById('totalBalance').textContent = formatNumber(QPay.balance);
+    document.getElementById('availableBalance').textContent = formatNumber(QPay.balance);
+    document.getElementById('bonusBalance').textContent = formatNumber(QPay.bonus);
+    document.getElementById('cardCount').textContent = QPay.cards.length;
+    document.getElementById('balanceAmount').innerHTML = QPay.balance.toLocaleString() + ' <span>₸</span>';
+    document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+    loadAvatar();
+
+    const ctx = document.getElementById('expenseChart').getContext('2d');
+    if (window._chart) window._chart.destroy();
+    window._chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+            datasets: [{
+                label: 'Расходы (₸)',
+                data: [2400, 3800, 1200, 5600, 8900, 3200, 4700],
+                borderColor: '#6c5ce7',
+                backgroundColor: 'rgba(108,92,231,0.08)',
+                fill: true,
+                tension: 0.3,
+                pointBackgroundColor: '#6c5ce7'
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    });
+}
+
+function toggleBalanceVisibility() {
+    const el = document.getElementById('balanceAmount');
+    const icon = document.getElementById('eyeIcon');
+    if (el.dataset.hidden === 'true') {
+        el.innerHTML = QPay.balance.toLocaleString() + ' <span>₸</span>';
+        el.dataset.hidden = 'false';
+        icon.className = 'fas fa-eye';
+    } else {
+        el.innerHTML = '**** <span>₸</span>';
+        el.dataset.hidden = 'true';
+        icon.className = 'fas fa-eye-slash';
+    }
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+function renderPayments() {
+    const cats = document.getElementById('paymentCategories');
+    const unique = [...new Set(QPay.payments.map(p => p.category))];
+    cats.innerHTML = unique.map(c =>
+        `<div class="payment-cat" onclick="filterPayments('${c}')"><i class="fas fa-tag"></i><span>${c}</span></div>`
+    ).join('') + `<div class="payment-cat" onclick="filterPayments('all')"><i class="fas fa-list"></i><span>Все</span></div>`;
+    filterPayments('all');
+}
+
+function filterPayments(cat) {
+    const container = document.getElementById('paymentServices');
+    const filtered = cat === 'all' ? QPay.payments : QPay.payments.filter(p => p.category === cat);
+    container.innerHTML = filtered.map(p =>
+        `<div class="shop-item">
+            <div class="img"><i class="fas ${p.icon}"></i></div>
+            <div class="body">
+                <div class="name">${p.name}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${p.category}</div>
+                <div class="price">${p.amount.toLocaleString()} ₸</div>
+                <button class="btn-add" onclick="payService(${p.id})"><i class="fas fa-check"></i> Оплатить</button>
+            </div>
+        </div>`
+    ).join('');
+}
+
+function payService(id) {
+    const svc = QPay.payments.find(p => p.id === id);
+    if (!svc) return;
+    if (QPay.balance < svc.amount) { toast('Недостаточно средств!', 'error'); return; }
+    QPay.balance -= svc.amount;
+    QPay.transactions.unshift({
+        id: Date.now(),
+        type: 'expense',
+        title: `Оплата: ${svc.name}`,
+        amount: svc.amount,
+        date: 'Сегодня',
+        icon: 'purple',
+        rawDate: new Date().toISOString()
+    });
+    toast(`Оплата ${svc.name} — ${svc.amount.toLocaleString()} ₸ выполнена!`);
+    renderDashboard();
+    renderHistory();
+}
+
+// ============================================================
+// TRANSFERS
+// ============================================================
+function toggleTransferFields() {
+    const type = document.getElementById('transferType').value;
+    document.getElementById('transferPhoneGroup').classList.toggle('hidden', type !== 'phone');
+    document.getElementById('transferCardGroup').classList.toggle('hidden', type !== 'card');
+    document.getElementById('transferInternalGroup').classList.toggle('hidden', type !== 'internal');
+}
+
+function findUser() {
+    const phone = document.getElementById('transferPhone').value;
+    const info = document.getElementById('recipientInfo');
+    if (phone.length > 8) {
+        info.classList.remove('hidden');
+        document.getElementById('recipientName').textContent = 'Анна Петрова';
+        document.getElementById('recipientPhoneMask').textContent = phone.replace(/(\d{3})\d{4}(\d{2})/, '$1***$2');
+    } else {
+        info.classList.add('hidden');
+    }
+    updateConfirm();
+}
+
+function updateConfirm() {
+    const amount = parseInt(document.getElementById('transferAmount').value) || 0;
+    document.getElementById('confirmAmount').textContent = amount.toLocaleString() + ' ₸';
+    document.getElementById('confirmTotal').textContent = amount.toLocaleString() + ' ₸';
+    const phone = document.getElementById('transferPhone').value;
+    document.getElementById('confirmPhone').textContent = phone || '—';
+    document.getElementById('confirmRecipient').textContent = document.getElementById('recipientName')?.textContent || '—';
+}
+
+function processTransfer() {
+    const amount = parseInt(document.getElementById('transferAmount').value);
+    if (!amount || amount <= 0) { toast('Введите сумму', 'error'); return; }
+    if (amount > QPay.balance) { toast('Недостаточно средств!', 'error'); return; }
+    if (amount > 50000 && !QPay.pin) { toast('Установите PIN-код в настройках', 'error'); return; }
+    const type = document.getElementById('transferType').value;
+    let recipient = 'Получатель';
+    if (type === 'phone') recipient = document.getElementById('recipientName').textContent || 'Получатель';
+    else if (type === 'card') recipient = 'По карте';
+    else recipient = 'Свой счет';
+
+    QPay.balance -= amount;
+    QPay.transactions.unshift({
+        id: Date.now(),
+        type: 'expense',
+        title: `Перевод ${recipient}`,
+        amount: amount,
+        date: 'Сегодня',
+        icon: 'red',
+        rawDate: new Date().toISOString()
+    });
+    QPay.transferHistory.unshift({ id: Date.now(), to: recipient, amount: amount, date: 'Сегодня', status: 'completed' });
+
+    toast(`Перевод ${amount.toLocaleString()} ₸ → ${recipient} выполнен!`);
+    renderDashboard();
+    renderHistory();
+    renderTransfers();
+    document.getElementById('transferAmount').value = '';
+    document.getElementById('transferPhone').value = '';
+    document.getElementById('recipientInfo').classList.add('hidden');
+    updateConfirm();
+}
+
+function renderTransfers() {
+    const container = document.getElementById('transferHistory');
+    container.innerHTML = QPay.transferHistory.map(t =>
+        `<div class="history-item">
+            <div class="left">
+                <div class="icon green"><i class="fas fa-arrow-right"></i></div>
+                <div class="info"><div class="title">${t.to}</div><div class="desc">${t.date} · ${t.status}</div></div>
+            </div>
+            <div class="amount negative">- ${t.amount.toLocaleString()} ₸</div>
+        </div>`
+    ).join('');
+}
+
+// ============================================================
+// SHOP
+// ============================================================
+let favFilterActive = false;
+
+function toggleFavFilter() {
+    favFilterActive = !favFilterActive;
+    document.getElementById('favFilterBtn').style.background = favFilterActive ? 'var(--primary)' : 'var(--card)';
+    document.getElementById('favFilterBtn').style.color = favFilterActive ? '#fff' : 'var(--text)';
+    renderShop();
+}
+
+function renderShop() {
+    const cat = document.getElementById('shopCategory').value;
+    const search = document.getElementById('shopSearch').value.toLowerCase();
+    const sort = document.getElementById('shopSort').value;
+    let items = QPay.products;
+    if (cat !== 'all') items = items.filter(p => p.category === cat);
+    if (search) items = items.filter(p => p.name.toLowerCase().includes(search));
+    if (favFilterActive) items = items.filter(p => QPay.favorites.includes(p.id));
+    if (sort === 'price_asc') items.sort((a, b) => a.price - b.price);
+    else if (sort === 'price_desc') items.sort((a, b) => b.price - a.price);
+    else if (sort === 'rating') items.sort((a, b) => b.rating - a.rating);
+
+    const grid = document.getElementById('shopGrid');
+    grid.innerHTML = items.map(p =>
+        `<div class="shop-item">
+            <button class="fav-btn ${QPay.favorites.includes(p.id) ? 'active' : ''}" onclick="toggleFav(${p.id})"><i class="fas fa-heart"></i></button>
+            <div class="img"><i class="fas ${p.icon}"></i></div>
+            <div class="body">
+                <div class="name">${p.name}</div>
+                <div class="rating"><i class="fas fa-star"></i> ${p.rating}</div>
+                <div class="price">${p.price.toLocaleString()} ₸ <span class="old-price">${p.oldPrice.toLocaleString()} ₸</span></div>
+                <button class="btn-add" onclick="addToCart(${p.id})"><i class="fas fa-cart-plus"></i> В корзину</button>
+                <button class="btn-add" style="background:var(--border);color:var(--text);margin-top:4px;" onclick="buyProduct(${p.id})">Купить сейчас</button>
+            </div>
+        </div>`
+    ).join('');
+    updateCartBadge();
+}
+
+function toggleFav(id) {
+    const idx = QPay.favorites.indexOf(id);
+    if (idx === -1) QPay.favorites.push(id);
+    else QPay.favorites.splice(idx, 1);
+    renderShop();
+}
+
+function addToCart(id) {
+    const p = QPay.products.find(pr => pr.id === id);
+    if (!p) return;
+    QPay.cart.push(p);
+    toast(`Товар "${p.name}" добавлен в корзину`);
+    updateCartBadge();
+}
+
+function updateCartBadge() {
+    const badge = document.getElementById('cartBadge');
+    if (badge) badge.textContent = QPay.cart.length;
+}
+
+function renderCart() {
+    const container = document.getElementById('cartList');
+    if (QPay.cart.length === 0) {
+        container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);">Корзина пуста</div>`;
+        document.getElementById('cartTotal').textContent = '';
+        return;
+    }
+    container.innerHTML = QPay.cart.map((item, i) =>
+        `<div class="history-item">
+            <div class="left">
+                <div class="icon purple"><i class="fas ${item.icon}"></i></div>
+                <div class="info"><div class="title">${item.name}</div><div class="desc">${item.price.toLocaleString()} ₸</div></div>
+            </div>
+            <button onclick="removeFromCart(${i})" style="background:none;color:#e74c3c;font-size:16px;"><i class="fas fa-trash"></i></button>
+        </div>`
+    ).join('');
+    const total = QPay.cart.reduce((s, i) => s + i.price, 0);
+    document.getElementById('cartTotal').textContent = `Итого: ${total.toLocaleString()} ₸`;
+}
+
+function removeFromCart(i) {
+    QPay.cart.splice(i, 1);
+    renderCart();
+    updateCartBadge();
+}
+
+function checkout() {
+    if (QPay.cart.length === 0) { toast('Корзина пуста', 'error'); return; }
+    const total = QPay.cart.reduce((s, i) => s + i.price, 0);
+    if (QPay.balance < total) { toast('Недостаточно средств!', 'error'); return; }
+    QPay.balance -= total;
+    QPay.orders.push({ id: Date.now(), items: [...QPay.cart], total, date: 'Сегодня', status: 'Оплачен' });
+    QPay.transactions.unshift({
+        id: Date.now(),
+        type: 'expense',
+        title: `Заказ на ${total.toLocaleString()} ₸`,
+        amount: total,
+        date: 'Сегодня',
+        icon: 'red',
+        rawDate: new Date().toISOString()
+    });
+    QPay.cart = [];
+    updateCartBadge();
+    toast('Заказ оформлен!');
+    renderDashboard();
+    renderHistory();
+    renderCart();
+    navigate('orders');
+}
+
+function renderOrders() {
+    const container = document.getElementById('ordersList');
+    if (QPay.orders.length === 0) {
+        container.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);">Нет заказов</div>`;
+        return;
+    }
+    container.innerHTML = QPay.orders.map(o =>
+        `<div class="history-item">
+            <div class="left">
+                <div class="icon green"><i class="fas fa-box"></i></div>
+                <div class="info"><div class="title">Заказ №${String(o.id).slice(-6)}</div><div class="desc">${o.date} · ${o.items.length} товаров</div></div>
+            </div>
+            <div class="amount">${o.total.toLocaleString()} ₸</div>
+        </div>`
+    ).join('');
+}
+
+function applyPromo() {
+    const code = document.getElementById('promoCode').value.trim().toUpperCase();
+    if (code === 'QPAY10') {
+        QPay.promo = 10;
+        toast('Промокод применён: скидка 10%');
+    } else {
+        toast('Неверный промокод', 'error');
+    }
+}
+
+function buyProduct(id) {
+    const p = QPay.products.find(pr => pr.id === id);
+    if (!p) return;
+    if (QPay.balance < p.price) { toast('Недостаточно средств!', 'error'); return; }
+    QPay.balance -= p.price;
+    QPay.transactions.unshift({
+        id: Date.now(),
+        type: 'expense',
+        title: `Покупка: ${p.name}`,
+        amount: p.price,
+        date: 'Сегодня',
+        icon: 'red',
+        rawDate: new Date().toISOString()
+    });
+    toast(`Товар "${p.name}" куплен за ${p.price.toLocaleString()} ₸`);
+    renderDashboard();
+    renderHistory();
+}
+
+// ============================================================
+// TICKETS
+// ============================================================
+function searchTickets() {
+    const from = document.getElementById('ticketFrom').value;
+    const to = document.getElementById('ticketTo').value;
+    const container = document.getElementById('ticketResults');
+    const results = QPay.tickets.filter(t => t.from.toLowerCase().includes(from.toLowerCase()) && t.to.toLowerCase().includes(to.toLowerCase()));
+    if (results.length === 0) {
+        container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;background:var(--card);border-radius:20px;border:1px solid var(--border);">Билетов не найдено</div>`;
+        return;
+    }
+    container.innerHTML = results.map(t =>
+        `<div class="shop-item">
+            <div class="img"><i class="fas ${t.type === 'Авиа' ? 'fa-plane' : t.type === 'Поезд' ? 'fa-train' : 'fa-bus'}"></i></div>
+            <div class="body">
+                <div class="name">${t.from} → ${t.to}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${t.company} · ${t.date}</div>
+                <div class="price">${t.price.toLocaleString()} ₸</div>
+                <button class="btn-add" onclick="openSeatSelection(${t.id})"><i class="fas fa-chair"></i> Выбрать место</button>
+            </div>
+        </div>`
+    ).join('');
+}
+
+function openSeatSelection(ticketId) {
+    const t = QPay.tickets.find(tk => tk.id === ticketId);
+    if (!t) return;
+    let seatsHtml = '';
+    for (let i = 1; i <= 30; i++) {
+        if (i % 6 === 0) seatsHtml += `<div class="seat aisle"></div>`;
+        const occupied = Math.random() < 0.3;
+        seatsHtml += `<div class="seat ${occupied ? 'occupied' : ''}" onclick="selectSeat(this)">${i}</div>`;
+    }
+    showModal(`Выбор места: ${t.from} → ${t.to}`,
+        `<div class="seat-grid">${seatsHtml}</div>
+         <button class="btn-submit" style="margin-top:12px;" onclick="confirmTicket(${t.id})">Купить билет</button>`
+    );
+}
+
+let selectedSeat = null;
+function selectSeat(el) {
+    if (el.classList.contains('occupied')) return;
+    document.querySelectorAll('.seat.selected').forEach(s => s.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedSeat = el.textContent;
+}
+
+function confirmTicket(ticketId) {
+    const t = QPay.tickets.find(tk => tk.id === ticketId);
+    if (!t) return;
+    if (QPay.balance < t.price) { toast('Недостаточно средств!', 'error'); return; }
+    QPay.balance -= t.price;
+    QPay.transactions.unshift({
+        id: Date.now(),
+        type: 'expense',
+        title: `Билет: ${t.from} → ${t.to}`,
+        amount: t.price,
+        date: 'Сегодня',
+        icon: 'purple',
+        rawDate: new Date().toISOString()
+    });
+    toast(`Билет ${t.from} → ${t.to} куплен за ${t.price.toLocaleString()} ₸`);
+    closeModal();
+    renderDashboard();
+    renderHistory();
+}
+
+// ============================================================
+// GOVERNMENT
+// ============================================================
+function renderGovernment() {
+    const container = document.getElementById('govServices');
+    container.innerHTML = QPay.govServices.map(g =>
+        `<div class="payment-cat" onclick="requestGovService(${g.id})"><i class="fas ${g.icon}"></i><span>${g.name}</span></div>`
+    ).join('');
+    document.getElementById('govRequests').innerHTML = `<div style="background:var(--card);padding:20px;border-radius:18px;border:1px solid var(--border);"><p class="text-muted">Выберите услугу для демонстрационного запроса</p></div>`;
+}
+
+function requestGovService(id) {
+    const svc = QPay.govServices.find(g => g.id === id);
+    if (!svc) return;
+    document.getElementById('govRequests').innerHTML =
+        `<div style="background:var(--card);padding:20px;border-radius:18px;border:1px solid var(--primary);">
+            <div style="display:flex;gap:12px;align-items:center;">
+                <i class="fas ${svc.icon}" style="font-size:30px;color:var(--primary);"></i>
+                <div><strong>${svc.name}</strong><div class="text-muted">Демонстрационный запрос отправлен</div></div>
+            </div>
+            <div style="margin-top:12px;padding:12px;background:var(--bg);border-radius:12px;">
+                <div>Статус: <span class="chip">В обработке</span></div>
+                <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">Номер запроса: Q-${String(Date.now()).slice(-6)}</div>
+            </div>
+            <div style="margin-top:12px;">
+                <button class="btn-submit" style="width:auto;padding:8px 20px;font-size:13px;" onclick="showQueueDemo()">Электронная очередь</button>
+            </div>
+            <button onclick="closeGovRequest()" style="margin-top:12px;padding:8px 20px;background:var(--primary);color:#fff;border-radius:30px;font-size:13px;">Закрыть</button>
+        </div>`;
+}
+
+function showQueueDemo() {
+    toast('Вы записаны в электронную очередь (демо)', 'info');
+}
+
+function closeGovRequest() {
+    document.getElementById('govRequests').innerHTML = `<div style="background:var(--card);padding:20px;border-radius:18px;border:1px solid var(--border);"><p class="text-muted">Выберите услугу для демонстрационного запроса</p></div>`;
+}
+
+// ============================================================
+// GUIDE + MAP
+// ============================================================
+let map = null;
+let markers = [];
+
+function renderGuide() {
+    const search = document.getElementById('guideSearch').value.toLowerCase();
+    let items = QPay.guide;
+    if (search) items = items.filter(g => g.name.toLowerCase().includes(search) || g.category.toLowerCase().includes(search));
+    const grid = document.getElementById('guideGrid');
+    grid.innerHTML = items.map(g =>
+        `<div class="shop-item">
+            <div class="img"><i class="fas fa-map-marker-alt" style="color:var(--primary);"></i></div>
+            <div class="body">
+                <div class="name">${g.name}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${g.category}</div>
+                <div style="font-size:13px;margin:4px 0;"><i class="fas fa-star" style="color:#f1c40f;"></i> ${g.rating}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${g.address}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${g.phone}</div>
+                <button class="btn-add" style="margin-top:8px;" onclick="focusMap(${g.lat}, ${g.lng})"><i class="fas fa-map"></i> Показать на карте</button>
+            </div>
+        </div>`
+    ).join('');
+    initMap();
+}
+
+function initMap() {
+    if (map) return;
+    map = L.map('map').setView([43.238, 76.945], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+    QPay.guide.forEach(g => {
+        L.marker([g.lat, g.lng]).addTo(map).bindPopup(`<b>${g.name}</b><br>${g.address}`);
+    });
+}
+
+function focusMap(lat, lng) {
+    if (map) map.setView([lat, lng], 16);
+}
+
+// ============================================================
+// BANK
+// ============================================================
+function renderBank() {
+    document.getElementById('mainAccount').textContent = (QPay.balance * 0.68).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸';
+    document.getElementById('savingsAccount').textContent = (QPay.balance * 0.32).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₸';
+    const container = document.getElementById('bankProducts');
+    container.innerHTML = QPay.bankProducts.map(p =>
+        `<div class="shop-item">
+            <div class="img"><i class="fas ${p.icon}"></i></div>
+            <div class="body">
+                <div class="name">${p.name}</div>
+                <div style="font-size:12px;color:var(--text-muted);">${p.desc}</div>
+                <div style="font-size:12px;color:var(--primary);margin:4px 0;">${p.benefits}</div>
+                <button class="btn-add" onclick="toast('Заявка на ${p.name} отправлена (демо)')"><i class="fas fa-check"></i> Оформить</button>
+            </div>
+        </div>`
+    ).join('');
+}
+
+// ============================================================
+// CARDS
+// ============================================================
+function renderCards() {
+    const container = document.getElementById('cardsList');
+    container.innerHTML = QPay.cards.map(c =>
+        `<div class="shop-item" style="background:linear-gradient(135deg,#1a1a3e,#2d1b69);color:#fff;">
+            <div class="img" style="background:transparent;"><i class="fas ${c.id === 1 ? 'fa-credit-card' : 'fa-id-card'}" style="color:#a29bfe;font-size:40px;"></i></div>
+            <div class="body">
+                <div class="name">${c.name}</div>
+                <div style="font-size:18px;font-weight:700;letter-spacing:2px;">${c.number}</div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;opacity:0.7;">
+                    <span>Срок: ${c.expiry}</span>
+                    <span>${c.balance.toLocaleString()} ₸</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                    <span class="chip" style="background:rgba(255,255,255,0.15);color:#fff;">${c.status}</span>
+                    <button onclick="freezeCard(${c.id})" style="background:rgba(255,255,255,0.1);color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;">Заморозить</button>
+                    <button onclick="setCardLimit(${c.id})" style="background:rgba(255,255,255,0.1);color:#fff;padding:4px 12px;border-radius:20px;font-size:11px;">Лимит</button>
+                </div>
+            </div>
+        </div>`
+    ).join('');
+}
+
+function freezeCard(id) {
+    const c = QPay.cards.find(card => card.id === id);
+    if (!c) return;
+    c.status = c.status === 'active' ? 'frozen' : 'active';
+    toast(`Карта ${c.name} ${c.status === 'frozen' ? 'заморожена' : 'разморожена'}`);
+    renderCards();
+}
+
+function setCardLimit(id) {
+    showModal('Лимит по карте', '<input id="cardLimitInput" type="number" placeholder="Сумма" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:12px;"><button class="btn-submit" onclick="saveCardLimit(' + id + ')">Сохранить</button>');
+}
+
+function saveCardLimit(id) {
+    const val = document.getElementById('cardLimitInput').value;
+    toast(`Лимит ${val} ₸ сохранён (демо)`);
+    closeModal();
+}
+
+// ============================================================
+// HISTORY
+// ============================================================
+function renderHistory() {
+    const filter = document.getElementById('historyFilter').value;
+    const dateFrom = document.getElementById('historyDateFrom').value;
+    const dateTo = document.getElementById('historyDateTo').value;
+    const minAmount = parseFloat(document.getElementById('historyMinAmount').value) || 0;
+    const maxAmount = parseFloat(document.getElementById('historyMaxAmount').value) || Infinity;
+    let items = QPay.transactions;
+    if (filter === 'transfer') items = items.filter(t => t.title.includes('Перевод'));
+    else if (filter === 'payment') items = items.filter(t => t.title.includes('Оплата'));
+    else if (filter === 'purchase') items = items.filter(t => t.title.includes('Покупка'));
+    else if (filter === 'income') items = items.filter(t => t.type === 'income');
+    if (dateFrom) items = items.filter(t => new Date(t.rawDate) >= new Date(dateFrom));
+    if (dateTo) items = items.filter(t => new Date(t.rawDate) <= new Date(dateTo + 'T23:59:59'));
+    items = items.filter(t => t.amount >= minAmount && t.amount <= maxAmount);
+
+    const container = document.getElementById('historyList');
+    container.innerHTML = items.map(t =>
+        `<div class="history-item">
+            <div class="left">
+                <div class="icon ${t.icon}"><i class="fas ${t.type === 'income' ? 'fa-arrow-down' : 'fa-arrow-up'}"></i></div>
+                <div class="info"><div class="title">${t.title}</div><div class="desc">${t.date}</div></div>
+            </div>
+            <div class="amount ${t.type === 'income' ? 'positive' : 'negative'}">${t.type === 'income' ? '+' : '-'} ${t.amount.toLocaleString()} ₸</div>
+        </div>`
+    ).join('');
+}
+
+function exportCSV() {
+    let csv = 'Дата,Описание,Сумма,Тип\n';
+    QPay.transactions.forEach(t => {
+        csv += `${t.date},${t.title},${t.amount},${t.type}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'qpay_history.csv';
+    link.click();
+    toast('CSV экспортирован');
+}
+
+// ============================================================
+// PROFILE
+// ============================================================
+function renderProfile() {
+    if (!QPay.user) return;
+    document.getElementById('profileName').textContent = QPay.user.name;
+    document.getElementById('profilePhone').textContent = QPay.user.phone;
+    document.getElementById('profileEmail').textContent = QPay.user.email;
+    document.getElementById('profileDate').textContent = QPay.user.registered;
+    loadAvatar();
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+function showNotifications() {
+    const unreadCount = QPay.notifications.filter(n => !n.read).length;
+    const list = QPay.notifications.map(n =>
+        `<div class="notif-item ${n.read ? '' : 'unread'}">
+            <div>
+                <div class="notif-title">${n.title}</div>
+                <div class="notif-msg">${n.msg}</div>
+            </div>
+            <div class="notif-time">${n.time}</div>
+        </div>`
+    ).join('');
+    showModal('Уведомления', list || 'Нет уведомлений');
+    QPay.notifications.forEach(n => n.read = true);
+    document.getElementById('notifDot').style.display = 'none';
+    toast('Все уведомления прочитаны', 'info');
+}
+
+function updateNotifDot() {
+    const unread = QPay.notifications.some(n => !n.read);
+    document.getElementById('notifDot').style.display = unread ? 'block' : 'none';
+}
+
+// ============================================================
+// QR
+// ============================================================
+function showQR() {
+    showModal('QR-платеж',
+        `<div style="text-align:center;padding:16px;">
+            <div style="background:#1a1a3e;padding:30px;border-radius:20px;display:inline-block;">
+                <div style="width:160px;height:160px;background:#fff;border-radius:12px;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-qrcode" style="font-size:100px;color:#1a1a3e;"></i>
+                </div>
+            </div>
+            <p style="margin-top:12px;font-weight:600;">Ваш QR-код для оплаты</p>
+            <p class="text-muted">Отсканируйте для перевода</p>
+            <button onclick="toast('QR-код скопирован (демо)')" style="margin-top:12px;padding:10px 24px;background:var(--primary);color:#fff;border-radius:40px;">Скопировать</button>
+        </div>`
+    );
+}
+
+// ============================================================
+// PIN & SECURITY
+// ============================================================
+function setPin() {
+    showModal('Установка PIN',
+        `<input id="pinInput" type="password" maxlength="4" placeholder="Введите 4-значный PIN" style="width:100%;padding:12px;border-radius:12px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:12px;">
+         <button class="btn-submit" onclick="savePin()">Сохранить</button>`
+    );
+}
+
+function savePin() {
+    const pin = document.getElementById('pinInput').value;
+    if (pin.length !== 4) { toast('PIN должен быть 4 цифры', 'error'); return; }
+    QPay.pin = pin;
+    localStorage.setItem('qpay_pin', pin);
+    toast('PIN-код установлен');
+    closeModal();
+}
+
+function showLoginLog() {
+    const list = QPay.loginLog.map(l => `${l.date} · ${l.device} · ${l.ip}`).join('<br>');
+    showModal('Журнал входов', list);
+}
+
+function showDevices() {
+    const list = QPay.devices.map(d => `${d.name} · ${d.lastActive}`).join('<br>');
+    showModal('Активные устройства', list);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const savedTheme = localStorage.getItem('qpay_theme');
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark');
+        document.getElementById('themeIcon').className = 'fas fa-sun';
+    }
+    const savedLang = localStorage.getItem('qpay_lang');
+    if (savedLang) {
+        const sel = document.getElementById('langSelect');
+        if (sel) sel.value = savedLang;
+    }
+    const savedPin = localStorage.getItem('qpay_pin');
+    if (savedPin) QPay.pin = savedPin;
+
+    document.getElementById('mainContent').style.display = 'none';
+    document.getElementById('sidebar').style.display = 'none';
+    document.getElementById('bottomNav').style.display = 'none';
+
+    if (!checkAuth()) {
+        document.body.innerHTML = `
+        <div class="auth-page" id="authPage">
+            <div class="auth-box">
+                <div class="logo"><i class="fas fa-bolt"></i><span>QPay</span></div>
+                <div class="sub">Войдите в свой аккаунт</div>
+                <div class="form-group">
+                    <label>Телефон или Email</label>
+                    <input id="loginPhone" value="+7 777 000 00 00" placeholder="+7 777 000 00 00">
+                </div>
+                <div class="form-group">
+                    <label>Пароль</label>
+                    <input id="loginPass" type="password" value="Demo12345" placeholder="Пароль">
+                </div>
+                <button class="btn-auth" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Войти</button>
+                <div class="switch">Нет аккаунта? <a onclick="showRegister()">Зарегистрироваться</a></div>
+                <div style="margin-top:12px;text-align:center;font-size:12px;color:var(--text-muted);">Демо: +7 777 000 00 00 / Demo12345</div>
+            </div>
+        </div>
+        <div class="toast-container" id="toastContainer"></div>
+        `;
+        window.doLogin = function() {
+            const phone = document.getElementById('loginPhone').value;
+            const pass = document.getElementById('loginPass').value;
+            loginUser(phone, pass);
+        };
+        window.showRegister = function() {
+            showModal('Регистрация', `
+                <div class="form-group"><label>Имя</label><input id="regName" placeholder="Имя"></div>
+                <div class="form-group"><label>Фамилия</label><input id="regSurname" placeholder="Фамилия"></div>
+                <div class="form-group"><label>Телефон</label><input id="regPhone" placeholder="+7 777 000 00 00"></div>
+                <div class="form-group"><label>Email</label><input id="regEmail" placeholder="email@example.com"></div>
+                <div class="form-group"><label>Пароль</label><input id="regPass" type="password" placeholder="Пароль"></div>
+                <button class="btn-submit" onclick="doRegister()">Зарегистрироваться</button>
+            `);
+        };
+        window.doRegister = function() {
+            toast('Регистрация выполнена! Теперь войдите.', 'success');
+            closeModal();
+        };
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && document.getElementById('loginPhone')) doLogin();
+        });
+    } else {
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('sidebar').style.display = 'flex';
+        document.getElementById('bottomNav').style.display = 'flex';
+    }
+
+    document.getElementById('modalOverlay')?.addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+
+    document.getElementById('dateDisplay').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+    updateNotifDot();
+});
+
+// ============================================================
+// GLOBAL
+// ============================================================
+window.navigate = navigate;
+window.toggleSidebar = toggleSidebar;
+window.showModal = showModal;
+window.closeModal = closeModal;
+window.toast = toast;
+window.logout = logout;
+window.showNotifications = showNotifications;
+window.showQR = showQR;
+window.filterPayments = filterPayments;
+window.payService = payService;
+window.processTransfer = processTransfer;
+window.toggleTransferFields = toggleTransferFields;
+window.findUser = findUser;
+window.buyProduct = buyProduct;
+window.searchTickets = searchTickets;
+window.buyTicket = buyTicket;
+window.requestGovService = requestGovService;
+window.closeGovRequest = closeGovRequest;
+window.renderGuide = renderGuide;
+window.renderShop = renderShop;
+window.renderPayments = renderPayments;
+window.renderTransfers = renderTransfers;
+window.renderHistory = renderHistory;
+window.renderCards = renderCards;
+window.renderBank = renderBank;
+window.renderGovernment = renderGovernment;
+window.renderDashboard = renderDashboard;
+window.renderProfile = renderProfile;
+window.renderPage = renderPage;
+window.toggleTheme = toggleTheme;
+window.changeLang = changeLang;
+window.uploadAvatar = uploadAvatar;
+window.toggleBalanceVisibility = toggleBalanceVisibility;
+window.toggleFav = toggleFav;
+window.addToCart = addToCart;
+window.removeFromCart = removeFromCart;
+window.checkout = checkout;
+window.applyPromo = applyPromo;
+window.openSeatSelection = openSeatSelection;
+window.selectSeat = selectSeat;
+window.confirmTicket = confirmTicket;
+window.freezeCard = freezeCard;
+window.setCardLimit = setCardLimit;
+window.saveCardLimit = saveCardLimit;
+window.exportCSV = exportCSV;
+window.setPin = setPin;
+window.savePin = savePin;
+window.showLoginLog = showLoginLog;
+window.showDevices = showDevices;
+window.showQueueDemo = showQueueDemo;
+window.toggleFavFilter = toggleFavFilter;
+window.focusMap = focusMap;
+
+// ============================================================
+// PWA / OFFLINE / PERSISTENCE
+// ============================================================
+(function () {
+    const QPAY_STATE_KEY = 'qpay_state_v1';
+    const APP_VERSION = '1.0.0';
+
+    function saveQPayState() {
+        try {
+            localStorage.setItem(QPAY_STATE_KEY, JSON.stringify(QPay));
+        } catch (e) {
+            console.warn('Не удалось сохранить состояние QPay', e);
+        }
+    }
+
+    function restoreQPayState() {
+        try {
+            const raw = localStorage.getItem(QPAY_STATE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            if (!saved || typeof saved !== 'object') return;
+            Object.keys(saved).forEach(function (key) {
+                if (Object.prototype.hasOwnProperty.call(QPay, key)) QPay[key] = saved[key];
+            });
+        } catch (e) {
+            console.warn('Не удалось восстановить состояние QPay', e);
+        }
+    }
+
+    // Debounced persistence keeps existing app functions unchanged.
+    let saveTimer;
+    function scheduleSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveQPayState, 150);
+    }
+
+    const originalSetItem = localStorage.setItem.bind(localStorage);
+    // Persist the QPay object after normal application activity as well.
+    ['click', 'input', 'change'].forEach(function (eventName) {
+        document.addEventListener(eventName, scheduleSave, true);
+    });
+    window.addEventListener('beforeunload', saveQPayState);
+    window.addEventListener('pagehide', saveQPayState);
+
+    function setOfflineUI() {
+        const el = document.getElementById('pwaOfflineIndicator');
+        if (el) el.classList.toggle('visible', !navigator.onLine);
+    }
+    window.addEventListener('online', function () {
+        setOfflineUI();
+        if (typeof toast === 'function') toast('Соединение восстановлено', 'info');
+    });
+    window.addEventListener('offline', function () {
+        setOfflineUI();
+        if (typeof toast === 'function') toast('Нет соединения. Доступен офлайн-режим', 'info');
+    });
+
+    // Notification / PushManager scaffold. No automatic permission request.
+    window.QPayPWA = window.QPayPWA || {};
+    window.QPayPWA.requestNotifications = async function () {
+        if (!('Notification' in window)) return false;
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            new Notification('QPay', { body: 'Уведомления включены', icon: 'icons/icon-192.png' });
+            return true;
+        }
+        return false;
+    };
+    window.QPayPWA.subscribePush = async function () {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+        const registration = await navigator.serviceWorker.ready;
+        // VAPID public key is intentionally left configurable for a real backend.
+        const vapidKey = window.QPAY_VAPID_PUBLIC_KEY;
+        if (!vapidKey) return null;
+        const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+        return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey });
+    };
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
+
+    function isIos() {
+        return /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+    function isStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    let deferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        const banner = document.getElementById('pwaInstallBanner');
+        if (banner && !isStandalone()) banner.classList.add('visible');
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        restoreQPayState();
+        setOfflineUI();
+
+        const install = document.getElementById('pwaInstallButton');
+        const installBanner = document.getElementById('pwaInstallBanner');
+        const installDismiss = document.getElementById('pwaInstallDismiss');
+        const iosBanner = document.getElementById('pwaIosBanner');
+        const iosDismiss = document.getElementById('pwaIosDismiss');
+
+        if (isIos() && !isStandalone() && !localStorage.getItem('qpay_ios_install_hint')) {
+            iosBanner && iosBanner.classList.add('visible');
+        }
+        install && install.addEventListener('click', async function () {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            installBanner && installBanner.classList.remove('visible');
+        });
+        installDismiss && installDismiss.addEventListener('click', function () {
+            installBanner && installBanner.classList.remove('visible');
+        });
+        iosDismiss && iosDismiss.addEventListener('click', function () {
+            localStorage.setItem('qpay_ios_install_hint', '1');
+            iosBanner && iosBanner.classList.remove('visible');
+        });
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').then(function (registration) {
+                registration.addEventListener('updatefound', function () {
+                    const worker = registration.installing;
+                    if (!worker) return;
+                    worker.addEventListener('statechange', function () {
+                        if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                            const banner = document.getElementById('pwaUpdateBanner');
+                            if (banner) banner.classList.add('visible');
+                        }
+                    });
+                });
+            }).catch(function (error) {
+                console.warn('Service Worker не зарегистрирован:', error);
+            });
+
+            navigator.serviceWorker.addEventListener('controllerchange', function () {
+                if (!window.__qpayReloading) {
+                    window.__qpayReloading = true;
+                    window.location.reload();
+                }
+            });
+        }
+
+        const updateButton = document.getElementById('pwaUpdateButton');
+        updateButton && updateButton.addEventListener('click', function () {
+            navigator.serviceWorker.getRegistration().then(function (registration) {
+                if (registration && registration.waiting) {
+                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+            });
+        });
+    });
+
+    window.QPayPWA.version = APP_VERSION;
+    window.QPayPWA.saveState = saveQPayState;
+})();
+
+</script>
+</body>
+</html>
