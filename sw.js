@@ -1,4 +1,4 @@
-const CACHE = 'qpay-v3';
+const CACHE = 'qpay-v4';
 const ASSETS = [
   './',
   './index.html',
