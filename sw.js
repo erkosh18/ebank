@@ -1,134 +1,43 @@
-const CACHE_VERSION = 'qpay-pwa-v1.0.0';
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
-const API_CACHE = `${CACHE_VERSION}-api`;
-
-const PRECACHE = [
+const CACHE = 'qpay-v2';
+const ASSETS = [
   './',
   './index.html',
-  './offline.html',
   './manifest.json',
-  './icons/icon-72.png',
-  './icons/icon-96.png',
-  './icons/icon-128.png',
-  './icons/icon-144.png',
-  './icons/icon-152.png',
+  './offline.html',
   './icons/icon-192.png',
-  './icons/icon-384.png',
   './icons/icon-512.png',
-  './icons/icon-maskable-192.png',
-  './icons/icon-maskable-512.png'
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
+  'https://cdn.jsdelivr.net/npm/chart.js',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
+  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
 ];
 
-self.addEventListener('install', event => {
-  event.waitUntil(caches.open(STATIC_CACHE).then(cache => cache.addAll(PRECACHE)));
-  self.skipWaiting();
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => Promise.all(
-      keys.filter(key => ![STATIC_CACHE, RUNTIME_CACHE, API_CACHE].includes(key))
-          .map(key => caches.delete(key))
-    ))
-  );
-  self.clients.claim();
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
-});
-
-function isApiRequest(request) {
-  return request.url.includes('/api/') || request.headers.get('Accept')?.includes('application/json');
-}
-
-function isHtmlRequest(request) {
-  return request.mode === 'navigate' ||
-         request.destination === 'document' ||
-         request.url.endsWith('.html') ||
-         request.url.endsWith('/');
-}
-
-self.addEventListener('fetch', event => {
-  const request = event.request;
-  if (request.method !== 'GET') return;
-
-  if (isApiRequest(request)) {
-    event.respondWith(networkFirstApi(request));
-  } else if (isHtmlRequest(request)) {
-    event.respondWith(networkFirstHtml(request));
-  } else {
-    event.respondWith(cacheFirstStatic(request));
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request).catch(() => caches.match('./offline.html')));
+    return;
   }
+  if (url.origin === location.origin) {
+    e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+      const copy = res.clone();
+      caches.open(CACHE).then(c => c.put(e.request, copy));
+      return res;
+    })));
+    return;
+  }
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./offline.html'))));
 });
 
-async function networkFirstHtml(request) {
-  try {
-    const response = await fetch(request);
-    const cache = await caches.open(RUNTIME_CACHE);
-    cache.put(request, response.clone());
-    return response;
-  } catch (error) {
-    return (await caches.match(request)) ||
-           (await caches.match('./index.html')) ||
-           (await caches.match('./offline.html'));
-  }
-}
-
-async function cacheFirstStatic(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-  try {
-    const response = await fetch(request);
-    if (response.ok && new URL(request.url).origin === location.origin) {
-      const cache = await caches.open(RUNTIME_CACHE);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    return caches.match('./offline.html');
-  }
-}
-
-async function networkFirstApi(request) {
-  try {
-    const response = await fetch(request);
-    if (response.ok) {
-      const cache = await caches.open(API_CACHE);
-      cache.put(request, response.clone());
-    }
-    return response;
-  } catch (error) {
-    return (await caches.match(request)) ||
-      new Response(JSON.stringify({ offline: true, message: 'Офлайн-режим' }), {
-        headers: { 'Content-Type': 'application/json' }
-      });
-  }
-}
-
-// Push scaffold: ready for a real push service/backend.
-self.addEventListener('push', event => {
-  let data = { title: 'QPay', body: 'Новое уведомление', icon: './icons/icon-192.png' };
-  try {
-    if (event.data) data = { ...data, ...event.data.json() };
-  } catch (_) {}
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: data.icon,
-      badge: './icons/icon-72.png',
-      data: data.data || {}
-    })
-  );
-});
-
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-  event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-    for (const client of list) {
-      if ('focus' in client) return client.focus();
-    }
-    return clients.openWindow('./index.html');
-  }));
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
